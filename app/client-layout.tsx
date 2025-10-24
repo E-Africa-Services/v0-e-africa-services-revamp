@@ -40,3 +40,5 @@ export function ClientLayout() {
     )
   )
 }
+
+export default ClientLayout
