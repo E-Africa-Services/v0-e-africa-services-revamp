@@ -41,22 +41,132 @@ export default function TrainingEnrollmentForm({
     areaOfStudy: "",
   })
 
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
+
+  const validateField = (name: string, value: string | string[]): string => {
+    switch (name) {
+      case "firstName":
+        if (!value || (typeof value === "string" && !value.trim())) return "First name is required"
+        if (typeof value === "string" && value.trim().length < 2) return "First name must be at least 2 characters"
+        if (typeof value === "string" && value.trim().length > 50) return "First name must be less than 50 characters"
+        if (typeof value === "string" && !/^[a-zA-Z\s'-]+$/.test(value)) return "First name can only contain letters"
+        return ""
+      case "lastName":
+        if (!value || (typeof value === "string" && !value.trim())) return "Last name is required"
+        if (typeof value === "string" && value.trim().length < 2) return "Last name must be at least 2 characters"
+        if (typeof value === "string" && value.trim().length > 50) return "Last name must be less than 50 characters"
+        if (typeof value === "string" && !/^[a-zA-Z\s'-]+$/.test(value)) return "Last name can only contain letters"
+        return ""
+      case "email":
+        if (!value || (typeof value === "string" && !value.trim())) return "Email is required"
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (typeof value === "string" && !emailRegex.test(value)) return "Please enter a valid email address"
+        return ""
+      case "phone":
+        if (!value || (typeof value === "string" && !value.trim())) return "Phone number is required"
+        if (typeof value === "string") {
+          const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/
+          if (!phoneRegex.test(value.replace(/\s/g, ""))) return "Please enter a valid phone number"
+          if (value.replace(/\D/g, "").length < 10) return "Phone number must be at least 10 digits"
+        }
+        return ""
+      case "country":
+        if (!value) return "Please select a country"
+        return ""
+      case "fieldOfExperience":
+        if (!value) return "Please select a field of experience"
+        return ""
+      case "experienceLevel":
+        if (!value) return "Please select an experience level"
+        return ""
+      case "skills":
+        if (Array.isArray(value) && value.length === 0) return "Please select at least one skill"
+        return ""
+      default:
+        return ""
+    }
+  }
+
+  const validateStep = (currentStep: number): boolean => {
+    const newErrors: Record<string, string> = {}
+    
+    if (currentStep === 1) {
+      // Validate step 1 fields
+      const step1Fields = ["firstName", "lastName", "email", "phone", "country"]
+      step1Fields.forEach((field) => {
+        const error = validateField(field, formData[field as keyof typeof formData])
+        if (error) {
+          newErrors[field] = error
+        }
+      })
+    } else if (currentStep === 2) {
+      // Validate step 2 fields
+      const step2Fields = ["fieldOfExperience", "experienceLevel", "skills"]
+      step2Fields.forEach((field) => {
+        const error = validateField(field, formData[field as keyof typeof formData])
+        if (error) {
+          newErrors[field] = error
+        }
+      })
+    }
+    
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+    
+    // Clear error for this field and validate
+    const error = validateField(name, value)
+    setErrors((prev) => {
+      const newErrors = { ...prev }
+      if (error) {
+        newErrors[name] = error
+      } else {
+        delete newErrors[name]
+      }
+      return newErrors
+    })
   }
 
   const handleSkillToggle = (skill: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      skills: prev.skills.includes(skill) ? prev.skills.filter((s) => s !== skill) : [...prev.skills, skill],
-    }))
+    setFormData((prev) => {
+      const newSkills = prev.skills.includes(skill) ? prev.skills.filter((s) => s !== skill) : [...prev.skills, skill]
+      
+      // Validate skills after toggle
+      const error = validateField("skills", newSkills)
+      setErrors((prevErrors) => {
+        const newErrors = { ...prevErrors }
+        if (error) {
+          newErrors.skills = error
+        } else {
+          delete newErrors.skills
+        }
+        return newErrors
+      })
+      
+      return { ...prev, skills: newSkills }
+    })
+  }
+
+  const handleNext = () => {
+    if (validateStep(step)) {
+      setStep(step + 1)
+      // Scroll to top of form
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!validateStep(step)) {
+      return
+    }
+    
     console.log("[v0] Training enrollment form submitted:", formData)
 
     const price = trainingPrices[training || ""] || 0
@@ -129,9 +239,12 @@ export default function TrainingEnrollmentForm({
                   value={formData.firstName}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:border-primary transition-colors"
+                  className={`w-full px-4 py-2 bg-background border rounded-lg focus:outline-none focus:border-primary transition-colors ${
+                    errors.firstName ? "border-red-500" : "border-border"
+                  }`}
                   placeholder="John"
                 />
+                {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Last Name *</label>
@@ -141,9 +254,12 @@ export default function TrainingEnrollmentForm({
                   value={formData.lastName}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:border-primary transition-colors"
+                  className={`w-full px-4 py-2 bg-background border rounded-lg focus:outline-none focus:border-primary transition-colors ${
+                    errors.lastName ? "border-red-500" : "border-border"
+                  }`}
                   placeholder="Doe"
                 />
+                {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>}
               </div>
             </div>
 
@@ -155,9 +271,12 @@ export default function TrainingEnrollmentForm({
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:border-primary transition-colors"
+                className={`w-full px-4 py-2 bg-background border rounded-lg focus:outline-none focus:border-primary transition-colors ${
+                  errors.email ? "border-red-500" : "border-border"
+                }`}
                 placeholder="john@example.com"
               />
+              {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
             </div>
 
             <div>
@@ -168,9 +287,12 @@ export default function TrainingEnrollmentForm({
                 value={formData.phone}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:border-primary transition-colors"
+                className={`w-full px-4 py-2 bg-background border rounded-lg focus:outline-none focus:border-primary transition-colors ${
+                  errors.phone ? "border-red-500" : "border-border"
+                }`}
                 placeholder="+234 XXX XXX XXXX"
               />
+              {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
             </div>
 
             <div>
@@ -180,7 +302,9 @@ export default function TrainingEnrollmentForm({
                 value={formData.country}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:border-primary transition-colors"
+                className={`w-full px-4 py-2 bg-background border rounded-lg focus:outline-none focus:border-primary transition-colors ${
+                  errors.country ? "border-red-500" : "border-border"
+                }`}
               >
                 <option value="">Select your country</option>
                 <option value="Nigeria">Nigeria</option>
@@ -192,6 +316,7 @@ export default function TrainingEnrollmentForm({
                 <option value="Egypt">Egypt</option>
                 <option value="Other">Other</option>
               </select>
+              {errors.country && <p className="text-red-500 text-xs mt-1">{errors.country}</p>}
             </div>
           </>
         )}
@@ -206,7 +331,9 @@ export default function TrainingEnrollmentForm({
                 value={formData.fieldOfExperience}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:border-primary transition-colors"
+                className={`w-full px-4 py-2 bg-background border rounded-lg focus:outline-none focus:border-primary transition-colors ${
+                  errors.fieldOfExperience ? "border-red-500" : "border-border"
+                }`}
               >
                 <option value="">Select your field</option>
                 <option value="Technology">Technology</option>
@@ -218,6 +345,7 @@ export default function TrainingEnrollmentForm({
                 <option value="Human Resources">Human Resources</option>
                 <option value="Other">Other</option>
               </select>
+              {errors.fieldOfExperience && <p className="text-red-500 text-xs mt-1">{errors.fieldOfExperience}</p>}
             </div>
 
             <div>
@@ -227,7 +355,9 @@ export default function TrainingEnrollmentForm({
                 value={formData.experienceLevel}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:border-primary transition-colors"
+                className={`w-full px-4 py-2 bg-background border rounded-lg focus:outline-none focus:border-primary transition-colors ${
+                  errors.experienceLevel ? "border-red-500" : "border-border"
+                }`}
               >
                 <option value="">Select your level</option>
                 <option value="Entry Level">Entry Level (0-2 years)</option>
@@ -235,6 +365,7 @@ export default function TrainingEnrollmentForm({
                 <option value="Senior">Senior (5-10 years)</option>
                 <option value="Expert">Expert (10+ years)</option>
               </select>
+              {errors.experienceLevel && <p className="text-red-500 text-xs mt-1">{errors.experienceLevel}</p>}
             </div>
 
             <div>
@@ -264,6 +395,7 @@ export default function TrainingEnrollmentForm({
                   </button>
                 ))}
               </div>
+              {errors.skills && <p className="text-red-500 text-xs mt-2">{errors.skills}</p>}
             </div>
           </>
         )}
@@ -319,7 +451,7 @@ export default function TrainingEnrollmentForm({
           {step < 3 ? (
             <button
               type="button"
-              onClick={() => setStep(step + 1)}
+              onClick={handleNext}
               className="flex-1 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold"
             >
               Next

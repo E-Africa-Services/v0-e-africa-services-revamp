@@ -21,15 +21,95 @@ export default function DiscoveryCallForm({
     requirements: "",
   })
 
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
+
+  const validateField = (name: string, value: string): string => {
+    switch (name) {
+      case "name":
+        if (!value.trim()) return "Name is required"
+        if (value.trim().length < 2) return "Name must be at least 2 characters"
+        if (value.trim().length > 100) return "Name must be less than 100 characters"
+        if (!/^[a-zA-Z\s'-]+$/.test(value)) return "Name can only contain letters, spaces, hyphens, and apostrophes"
+        return ""
+      case "businessName":
+        if (!value.trim()) return "Business name is required"
+        if (value.trim().length < 2) return "Business name must be at least 2 characters"
+        if (value.trim().length > 100) return "Business name must be less than 100 characters"
+        return ""
+      case "email":
+        if (!value.trim()) return "Email is required"
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(value)) return "Please enter a valid email address"
+        return ""
+      case "phone":
+        if (!value.trim()) return "Phone number is required"
+        const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/
+        if (!phoneRegex.test(value.replace(/\s/g, ""))) return "Please enter a valid phone number"
+        if (value.replace(/\D/g, "").length < 10) return "Phone number must be at least 10 digits"
+        return ""
+      case "whatsapp":
+        if (value.trim()) {
+          const whatsappRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/
+          if (!whatsappRegex.test(value.replace(/\s/g, ""))) return "Please enter a valid WhatsApp number"
+          if (value.replace(/\D/g, "").length < 10) return "WhatsApp number must be at least 10 digits"
+        }
+        return ""
+      case "service":
+        if (!value) return "Please select a service"
+        return ""
+      case "requirements":
+        if (!value.trim()) return "Please describe your requirements"
+        if (value.trim().length < 20) return "Requirements must be at least 20 characters"
+        if (value.trim().length > 1000) return "Requirements must be less than 1000 characters"
+        return ""
+      default:
+        return ""
+    }
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+    
+    // Clear error for this field and validate
+    const error = validateField(name, value)
+    setErrors((prev) => {
+      const newErrors = { ...prev }
+      if (error) {
+        newErrors[name] = error
+      } else {
+        delete newErrors[name]
+      }
+      return newErrors
+    })
+  }
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {}
+    
+    Object.keys(formData).forEach((key) => {
+      const error = validateField(key, formData[key as keyof typeof formData])
+      if (error) {
+        newErrors[key] = error
+      }
+    })
+    
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!validateForm()) {
+      // Scroll to first error
+      const firstErrorField = Object.keys(errors)[0]
+      const element = document.querySelector(`[name="${firstErrorField}"]`)
+      element?.scrollIntoView({ behavior: "smooth", block: "center" })
+      return
+    }
+    
     console.log("[v0] Discovery call form submitted:", formData)
     setSubmitted(true)
     setTimeout(() => {
@@ -74,9 +154,12 @@ export default function DiscoveryCallForm({
               value={formData.name}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:border-primary transition-colors"
+              className={`w-full px-4 py-2 bg-background border rounded-lg focus:outline-none focus:border-primary transition-colors ${
+                errors.name ? "border-red-500" : "border-border"
+              }`}
               placeholder="John Doe"
             />
+            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Business Name *</label>
@@ -86,9 +169,12 @@ export default function DiscoveryCallForm({
               value={formData.businessName}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:border-primary transition-colors"
+              className={`w-full px-4 py-2 bg-background border rounded-lg focus:outline-none focus:border-primary transition-colors ${
+                errors.businessName ? "border-red-500" : "border-border"
+              }`}
               placeholder="Your Company"
             />
+            {errors.businessName && <p className="text-red-500 text-xs mt-1">{errors.businessName}</p>}
           </div>
         </div>
 
@@ -101,9 +187,12 @@ export default function DiscoveryCallForm({
               value={formData.email}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:border-primary transition-colors"
+              className={`w-full px-4 py-2 bg-background border rounded-lg focus:outline-none focus:border-primary transition-colors ${
+                errors.email ? "border-red-500" : "border-border"
+              }`}
               placeholder="john@company.com"
             />
+            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Phone *</label>
@@ -113,9 +202,12 @@ export default function DiscoveryCallForm({
               value={formData.phone}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:border-primary transition-colors"
+              className={`w-full px-4 py-2 bg-background border rounded-lg focus:outline-none focus:border-primary transition-colors ${
+                errors.phone ? "border-red-500" : "border-border"
+              }`}
               placeholder="+234 XXX XXX XXXX"
             />
+            {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
           </div>
         </div>
 
@@ -126,9 +218,12 @@ export default function DiscoveryCallForm({
             name="whatsapp"
             value={formData.whatsapp}
             onChange={handleChange}
-            className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:border-primary transition-colors"
+            className={`w-full px-4 py-2 bg-background border rounded-lg focus:outline-none focus:border-primary transition-colors ${
+              errors.whatsapp ? "border-red-500" : "border-border"
+            }`}
             placeholder="+234 XXX XXX XXXX"
           />
+          {errors.whatsapp && <p className="text-red-500 text-xs mt-1">{errors.whatsapp}</p>}
         </div>
 
         <div>
@@ -138,7 +233,9 @@ export default function DiscoveryCallForm({
             value={formData.service}
             onChange={handleChange}
             required
-            className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:border-primary transition-colors"
+            className={`w-full px-4 py-2 bg-background border rounded-lg focus:outline-none focus:border-primary transition-colors ${
+              errors.service ? "border-red-500" : "border-border"
+            }`}
           >
             <option value="">Select a service</option>
             <option value="Customer Success Training">Customer Success Training</option>
@@ -149,6 +246,7 @@ export default function DiscoveryCallForm({
             <option value="Workforce Development">Workforce Development</option>
             <option value="IoT Consultancy & Training">IoT Consultancy & Training</option>
           </select>
+          {errors.service && <p className="text-red-500 text-xs mt-1">{errors.service}</p>}
         </div>
 
         <div>
@@ -159,9 +257,15 @@ export default function DiscoveryCallForm({
             onChange={handleChange}
             required
             rows={4}
-            className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:border-primary transition-colors resize-none"
+            className={`w-full px-4 py-2 bg-background border rounded-lg focus:outline-none focus:border-primary transition-colors resize-none ${
+              errors.requirements ? "border-red-500" : "border-border"
+            }`}
             placeholder="Tell us about your specific needs and goals..."
           />
+          {errors.requirements && <p className="text-red-500 text-xs mt-1">{errors.requirements}</p>}
+          <p className="text-xs text-muted-foreground mt-1">
+            {formData.requirements.length}/1000 characters (minimum 20)
+          </p>
         </div>
 
         <button
